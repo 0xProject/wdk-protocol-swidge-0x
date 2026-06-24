@@ -106,24 +106,24 @@ See [`examples/swap-usdc-to-weth.js`](examples/swap-usdc-to-weth.js) for a runna
 
 | Chain | Chain ID |
 |---|---|
-| Ethereum | 1 |
-| Arbitrum | 42161 |
-| Base | 8453 |
-| Optimism | 10 |
-| Polygon | 137 |
-| BNB Smart Chain | 56 |
-| Avalanche | 43114 |
-| Blast | 81457 |
-| Mantle | 5000 |
-| Scroll | 534352 |
-| Sonic | 146 |
 | Abstract | 2741 |
+| Arbitrum One | 42161 |
+| Avalanche C-Chain | 43114 |
+| Base | 8453 |
 | Berachain | 80094 |
+| BNB Smart Chain | 56 |
+| Ethereum | 1 |
 | HyperEVM | 999 |
 | Ink | 57073 |
 | Linea | 59144 |
-| Mode | 34443 |
+| Mantle | 5000 |
 | Monad | 143 |
+| OP Mainnet | 10 |
+| Plasma | 9745 |
+| Polygon | 137 |
+| Scroll | 534352 |
+| Sonic | 146 |
+| Tempo | 4217 |
 | Unichain | 130 |
 | World Chain | 480 |
 
