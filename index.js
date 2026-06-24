@@ -33,4 +33,5 @@
 /** @typedef {import('./src/0x-protocol.js').ZeroExProtocolConfig} ZeroExProtocolConfig */
 
 export { default, default as ZeroExProtocol } from './src/0x-protocol.js'
+export { ZeroExApiError, ZeroExInsufficientLiquidityError, ZeroExFeeLimitExceededError, ZeroExReadOnlyError } from './src/errors.js'
 export { ISwidgeProtocol } from '@tetherto/wdk-wallet/protocols'

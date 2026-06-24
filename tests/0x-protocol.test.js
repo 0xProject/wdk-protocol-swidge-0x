@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals'
 
 import ZeroExProtocol from '../index.js'
-import { ZeroExApiError, ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError } from '../src/errors.js'
+import { ZeroExApiError, ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError } from '../src/errors.js'
 import { NotImplementedError } from '@tetherto/wdk-wallet'
 
 const BASE_URL = 'https://api.0x.org'
@@ -286,19 +286,19 @@ describe('ZeroExProtocol', () => {
       ).rejects.toThrow('Cross-chain bridging is not supported')
     })
 
-    test('throws when no account is bound', async () => {
+    test('throws ZeroExReadOnlyError when no account is bound', async () => {
       const p = new ZeroExProtocol(undefined, { chainId: 1, apiKey: 'key' })
       await expect(
         p.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 1n })
-      ).rejects.toThrow('read-only account')
+      ).rejects.toThrow(ZeroExReadOnlyError)
     })
 
-    test('throws when account lacks sendTransaction (read-only)', async () => {
+    test('throws ZeroExReadOnlyError when account lacks sendTransaction (read-only)', async () => {
       const readOnly = { getAddress: jest.fn(async () => TAKER) }
       const p = new ZeroExProtocol(readOnly, { chainId: 1, apiKey: 'key' })
       await expect(
         p.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 1n })
-      ).rejects.toThrow()
+      ).rejects.toThrow(ZeroExReadOnlyError)
     })
 
     test('throws ZeroExFeeLimitExceededError when protocol fee cap exceeded', async () => {

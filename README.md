@@ -170,6 +170,7 @@ Fee caps (`maxNetworkFeeBps`, `maxProtocolFeeBps`) are only enforced when the fe
 | `ZeroExApiError` | The 0x API returned a non-2xx response |
 | `ZeroExInsufficientLiquidityError` | `liquidityAvailable: false` in the price response |
 | `ZeroExFeeLimitExceededError` | A quoted fee exceeds a configured `maxNetworkFeeBps` or `maxProtocolFeeBps` cap |
+| `ZeroExReadOnlyError` | `swidge` is called without a full signing account |
 | `NotImplementedError` | `getSupportedTokens()` is called |
 
 ---

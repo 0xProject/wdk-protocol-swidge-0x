@@ -51,6 +51,16 @@ export class ZeroExInsufficientLiquidityError extends ZeroExApiError {
 }
 
 /**
+ * Thrown when swidge is called without a full signing account.
+ */
+export class ZeroExReadOnlyError extends Error {
+  constructor () {
+    super('Cannot execute a swap: the protocol was created without an account or with a read-only account.')
+    this.name = 'ZeroExReadOnlyError'
+  }
+}
+
+/**
  * Thrown when a quoted fee exceeds a configured fee cap.
  */
 export class ZeroExFeeLimitExceededError extends Error {

@@ -18,7 +18,7 @@ import { SwidgeProtocol } from '@tetherto/wdk-wallet/protocols'
 import { NotImplementedError } from '@tetherto/wdk-wallet'
 
 import ZeroExApiClient from './api-client.js'
-import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError } from './errors.js'
+import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError } from './errors.js'
 
 /** @typedef {import('@tetherto/wdk-wallet').IWalletAccount} IWalletAccount */
 /** @typedef {import('@tetherto/wdk-wallet').IWalletAccountReadOnly} IWalletAccountReadOnly */
@@ -210,6 +210,9 @@ export default class ZeroExProtocol extends SwidgeProtocol {
       toTokenAmountMin,
       fees: this._mapFees(response, chainId),
       estimatedDuration: undefined,
+      // The /price endpoint does not return an expiry timestamp; quotes via /quote expire ~30s
+      // after fetching but that is enforced server-side, not surfaced in the response.
+      expiry: undefined,
       // 0x returns estimatedPriceImpact as a percentage string (e.g. "0.5" = 0.5%)
       priceImpact: response.estimatedPriceImpact != null
         ? Number(response.estimatedPriceImpact) / 100
@@ -231,9 +234,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
    */
   async swidge (options, config) {
     if (!this._account || typeof this._account.sendTransaction !== 'function') {
-      throw new Error(
-        'Cannot execute a swap: the protocol was created without an account or with a read-only account.'
-      )
+      throw new ZeroExReadOnlyError()
     }
 
     const chainId = Number(this._config.chainId)
