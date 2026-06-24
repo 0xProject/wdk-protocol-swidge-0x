@@ -14,10 +14,10 @@
   "homepage": "https://0x.org",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xProject/wdk-swap-0x-evm.git"
+    "url": "git+https://github.com/0xProject/wdk-protocol-swidge-0x.git"
   },
   "bugs": {
-    "url": "https://github.com/0xProject/wdk-swap-0x-evm/issues"
+    "url": "https://github.com/0xProject/wdk-protocol-swidge-0x/issues"
   },
   "author": "0x Labs",
   "license": "Apache-2.0",
@@ -39,7 +39,7 @@
     "lint:fix": "standard --fix",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "e2e": "node tests/e2e/swap-mainnet.js"
+    "e2e": "node tests/e2e/swap-base.js"
   },
   "dependencies": {
     "@tetherto/wdk-wallet": "^1.0.0-beta.11",

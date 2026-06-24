@@ -1,30 +1,30 @@
-// End-to-end smoke test of the ZeroExProtocol module against the live 0x API.
+// End-to-end smoke test of the ZeroExProtocol module against the live 0x API on Base mainnet.
 //
 // The scope is decided by the credentials you provide:
 //   - no MNEMONIC -> quote-only (live API, no signing, no funds, safe).
-//   - MNEMONIC    -> real execution: a small mainnet transaction.
+//   - MNEMONIC    -> real execution: a small Base mainnet transaction.
 //
 // Usage:
-//   ZERO_EX_API_KEY=... node tests/e2e/swap-mainnet.js                        # quote-only
-//   ZERO_EX_API_KEY=... MNEMONIC="word word ..." node tests/e2e/swap-mainnet.js  # execute
+//   ZERO_EX_API_KEY=... node tests/e2e/swap-base.js                        # quote-only
+//   ZERO_EX_API_KEY=... MNEMONIC="word word ..." node tests/e2e/swap-base.js  # execute
 //
 // Environment:
-//   ZERO_EX_API_KEY   Required. Get one at https://dashboard.0x.org
+//   ZERO_EX_API_KEY   Required. Get one at https://dashboard.0x.org/create-account
 //   MNEMONIC          BIP-39 seed phrase. Enables real swap execution.
-//   ETH_RPC           Ethereum RPC URL (default: https://cloudflare-eth.com)
-//   FROM_TOKEN        Sell token address (default: USDC on mainnet)
-//   TO_TOKEN          Buy token address (default: WETH on mainnet)
+//   BASE_RPC          Base RPC URL (default: https://mainnet.base.org)
+//   FROM_TOKEN        Sell token address (default: USDC on Base)
+//   TO_TOKEN          Buy token address (default: WETH on Base)
 //   AMOUNT            Sell amount in base units (default: 1000000 = 1 USDC)
 //   MAX_PROTOCOL_FEE_BPS / MAX_NETWORK_FEE_BPS
 //                     Optional fee caps in basis points. Unset = no cap.
 
 import ZeroExProtocol from '../../index.js'
 
-const CHAIN_ID = 1
-const ETH_RPC = process.env.ETH_RPC ?? 'https://cloudflare-eth.com'
+const CHAIN_ID = 8453 // Base mainnet
+const BASE_RPC = process.env.BASE_RPC ?? 'https://mainnet.base.org'
 
-const FROM_TOKEN = process.env.FROM_TOKEN ?? '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' // USDC
-const TO_TOKEN = process.env.TO_TOKEN ?? '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' // WETH
+const FROM_TOKEN = process.env.FROM_TOKEN ?? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' // USDC on Base
+const TO_TOKEN = process.env.TO_TOKEN ?? '0x4200000000000000000000000000000000000006' // WETH on Base
 const AMOUNT = BigInt(process.env.AMOUNT ?? '1000000') // 1 USDC (6 decimals)
 
 const apiKey = process.env.ZERO_EX_API_KEY
@@ -43,7 +43,7 @@ async function main () {
 
   if (MNEMONIC) {
     const { WalletAccountEvm } = await import('@tetherto/wdk-wallet-evm')
-    account = new WalletAccountEvm(MNEMONIC, "0'/0/0", { provider: ETH_RPC, chainId: CHAIN_ID })
+    account = new WalletAccountEvm(MNEMONIC, "0'/0/0", { provider: BASE_RPC, chainId: CHAIN_ID })
     willExecute = true
     log('Account: WalletAccountEvm (HD, from MNEMONIC) — execution enabled.\n')
   } else {
@@ -55,13 +55,13 @@ async function main () {
 
   const from = account ? await account.getAddress() : '(none)'
   log('Source account:', from)
-  log(`Route: ${fmt(AMOUNT)} ${FROM_TOKEN} -> ${TO_TOKEN} on chain ${CHAIN_ID}\n`)
+  log(`Route: ${fmt(AMOUNT)} ${FROM_TOKEN} -> ${TO_TOKEN} on Base (chain ${CHAIN_ID})\n`)
 
   // ---- Phase 0: discovery ----
   const chains = await protocol.getSupportedChains()
   log(`Discovery: ${chains.length} chains supported.`)
-  const eth = chains.find(c => c.id === CHAIN_ID)
-  log('  Ethereum:', eth)
+  const base = chains.find(c => c.id === CHAIN_ID)
+  log('  Base:', base)
   log('')
 
   // ---- Phase 1: quote (live API, no signing) ----
