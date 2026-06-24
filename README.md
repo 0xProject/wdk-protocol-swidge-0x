@@ -182,6 +182,29 @@ The `swap`, `quoteSwap`, `bridge`, and `quoteBridge` methods are inherited from 
 
 ---
 
+## Development
+
+```bash
+npm install       # install dependencies
+npm test          # run unit tests
+npm run lint      # check code style (JavaScript Standard Style)
+npm run build:types  # generate TypeScript declarations in types/
+```
+
+End-to-end test against the live 0x API (read-only, no wallet needed):
+
+```bash
+ZERO_EX_API_KEY=... npm run e2e
+```
+
+To test real swap execution, add a BIP-39 mnemonic:
+
+```bash
+ZERO_EX_API_KEY=... MNEMONIC="word word ..." npm run e2e
+```
+
+---
+
 ## Security
 
 See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process.
