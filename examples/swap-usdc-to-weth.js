@@ -14,6 +14,22 @@ const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 const SELL_AMOUNT = 100_000_000n // 100 USDC (6 decimals)
 
+const TOKEN_INFO = {
+  '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee': { symbol: 'ETH', decimals: 18 },
+  eth: { symbol: 'ETH', decimals: 18 },
+  [USDC.toLowerCase()]: { symbol: 'USDC', decimals: 6 },
+  usdc: { symbol: 'USDC', decimals: 6 },
+  [WETH.toLowerCase()]: { symbol: 'WETH', decimals: 18 },
+  weth: { symbol: 'WETH', decimals: 18 }
+}
+
+function formatFeeAmount (amount, tokenAddress) {
+  const info = TOKEN_INFO[tokenAddress.toLowerCase()]
+  if (!info) return `${amount} (${tokenAddress.slice(0, 10)}…)`
+  const value = Number(amount) / 10 ** info.decimals
+  return `${value.toFixed(6)} ${info.symbol}`
+}
+
 const apiKey = process.env.ZERO_EX_API_KEY
 if (!apiKey) {
   console.error('Error: ZERO_EX_API_KEY environment variable is not set.')
@@ -48,7 +64,7 @@ console.log(`  Min received: ${ethMin.toFixed(6)} WETH (after slippage)`)
 console.log(`  Price impact: ${priceImpactPct}%`)
 console.log('  Fees:')
 for (const fee of quote.fees) {
-  console.log(`    [${fee.type}] ${fee.amount} ${fee.token}`)
+  console.log(`    [${fee.type}] ${formatFeeAmount(fee.amount, fee.token)}`)
 }
 
 // ─── Step 3: Execute (requires a full wallet account) ────────────────────────
