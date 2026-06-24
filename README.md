@@ -24,7 +24,7 @@ npm install @0x/wdk-protocol-swidge-0x
 | Option | Type | Required | Description |
 |---|---|---|---|
 | `chainId` | `number \| string` | ✅ | EVM chain ID of the bound wallet account |
-| `apiKey` | `string` | ✅ | 0x API key — get one at [dashboard.0x.org](https://dashboard.0x.org) |
+| `apiKey` | `string` | ✅ | 0x API key — get one at [dashboard.0x.org](https://dashboard.0x.org/create-account) |
 | `baseUrl` | `string` | | API base URL. Defaults to `https://api.0x.org` |
 | `defaultSlippage` | `number` | | Default slippage as a decimal (e.g. `0.005` = 0.5%). Defaults to no slippage param sent |
 | `skipApproval` | `boolean` | | Skip automatic ERC-20 approval before swapping |
