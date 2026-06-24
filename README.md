@@ -205,6 +205,23 @@ ZERO_EX_API_KEY=... MNEMONIC="word word ..." npm run e2e
 
 ---
 
+## Unsupported options
+
+The following fields from `SwidgeCommonOptions` are accepted by the interface but not supported by this module:
+
+| Option | Reason |
+|---|---|
+| `toChain` | Cross-chain bridging is not implemented. Passing a `toChain` that differs from the configured `chainId` throws an error. |
+| `refundAddress` | The 0x AllowanceHolder flow has no refund path. This field is silently ignored. |
+
+---
+
+## Support
+
+Open an issue at [github.com/0xProject/wdk-protocol-swidge-0x/issues](https://github.com/0xProject/wdk-protocol-swidge-0x/issues).
+
+---
+
 ## Security
 
 See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process.

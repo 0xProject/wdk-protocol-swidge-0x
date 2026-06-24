@@ -178,6 +178,12 @@ describe('ZeroExProtocol', () => {
       ).rejects.toThrow()
     })
 
+    test('throws when toChain differs from configured chainId', async () => {
+      await expect(
+        protocol.quoteSwidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 1n, toChain: 42161 })
+      ).rejects.toThrow('Cross-chain bridging is not supported')
+    })
+
     test('works without an account (quote-only)', async () => {
       const readOnlyProtocol = new ZeroExProtocol(undefined, { chainId: 1, apiKey: 'key' })
       await expect(
@@ -272,6 +278,12 @@ describe('ZeroExProtocol', () => {
       })
 
       expect(account.approve).not.toHaveBeenCalled()
+    })
+
+    test('throws when toChain differs from configured chainId', async () => {
+      await expect(
+        protocol.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 1n, toChain: 42161 })
+      ).rejects.toThrow('Cross-chain bridging is not supported')
     })
 
     test('throws when no account is bound', async () => {
@@ -435,26 +447,38 @@ describe('ZeroExProtocol', () => {
       const spy = jest.spyOn(protocol, 'swidge')
       await protocol.bridge({
         token: USDC,
-        targetChain: 42161,
+        targetChain: CHAIN_ID,
         recipient: TAKER,
         amount: 100000000n
       })
       expect(spy).toHaveBeenCalledWith(
-        expect.objectContaining({ fromToken: USDC, toToken: USDC, toChain: 42161 })
+        expect.objectContaining({ fromToken: USDC, toToken: USDC, toChain: CHAIN_ID })
       )
+    })
+
+    test('bridge throws for cross-chain targetChain', async () => {
+      await expect(
+        protocol.bridge({ token: USDC, targetChain: 42161, recipient: TAKER, amount: 100000000n })
+      ).rejects.toThrow('Cross-chain bridging is not supported')
     })
 
     test('quoteBridge delegates to quoteSwidge', async () => {
       const spy = jest.spyOn(protocol, 'quoteSwidge')
       await protocol.quoteBridge({
         token: USDC,
-        targetChain: 42161,
+        targetChain: CHAIN_ID,
         recipient: TAKER,
         amount: 100000000n
       })
       expect(spy).toHaveBeenCalledWith(
-        expect.objectContaining({ fromToken: USDC, toToken: USDC, toChain: 42161 })
+        expect.objectContaining({ fromToken: USDC, toToken: USDC, toChain: CHAIN_ID })
       )
+    })
+
+    test('quoteBridge throws for cross-chain targetChain', async () => {
+      await expect(
+        protocol.quoteBridge({ token: USDC, targetChain: 42161, recipient: TAKER, amount: 100000000n })
+      ).rejects.toThrow('Cross-chain bridging is not supported')
     })
 
     test('quoteSwap returns fee as sum of SwidgeFee amounts', async () => {

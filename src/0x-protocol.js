@@ -156,6 +156,12 @@ export default class ZeroExProtocol extends SwidgeProtocol {
     }
 
     const chainId = Number(this._config.chainId)
+
+    if (options.toChain != null && Number(options.toChain) !== chainId) {
+      throw new Error(
+        `Cross-chain bridging is not supported. toChain (${options.toChain}) must match the configured chainId (${chainId}).`
+      )
+    }
     const sellToken = this._normalizeToken(options.fromToken)
     const buyToken = this._normalizeToken(options.toToken)
 
@@ -231,6 +237,12 @@ export default class ZeroExProtocol extends SwidgeProtocol {
     }
 
     const chainId = Number(this._config.chainId)
+
+    if (options.toChain != null && Number(options.toChain) !== chainId) {
+      throw new Error(
+        `Cross-chain bridging is not supported. toChain (${options.toChain}) must match the configured chainId (${chainId}).`
+      )
+    }
     const sellToken = this._normalizeToken(options.fromToken)
     const buyToken = this._normalizeToken(options.toToken)
     const taker = await this._account.getAddress()
