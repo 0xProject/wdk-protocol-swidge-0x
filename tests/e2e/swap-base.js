@@ -119,5 +119,6 @@ async function main () {
 
 main().catch(err => {
   console.error('\nE2E failed:', err.message)
+  if (err.body != null) console.error('API response body:', JSON.stringify(err.body, null, 2))
   process.exitCode = 1
 })

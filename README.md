@@ -135,7 +135,7 @@ Call `getSupportedChains()` to retrieve the full list at runtime.
 
 The 0x Swap API accepts **any liquid ERC-20 token by contract address**. There is no supported token list — `getSupportedTokens()` throws `NotImplementedError`. Pass token addresses directly to `quoteSwidge` and `swidge`.
 
-For native ETH (or any chain's native token), use `0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee` or the alias `'native'`.
+For native ETH (or any chain's native token) as a **buy token**, use `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeeeE` or the alias `'native'`. Selling native ETH is not supported by the AllowanceHolder flow — wrap to WETH first.
 
 ---
 
@@ -203,6 +203,16 @@ To test real swap execution, add a BIP-39 mnemonic:
 ```bash
 ZERO_EX_API_KEY=... MNEMONIC="word word ..." npm run e2e
 ```
+
+---
+
+## Verified on mainnet
+
+End-to-end tested against the live 0x API on Base mainnet (chain 8453):
+
+| Swap | Chain | Tx |
+|---|---|---|
+| 1 USDC → WETH | Base | [`0x87afe3…704ec`](https://basescan.org/tx/0x87afe381a625f1af33f7e4faec1f43fbbcb2dde569c2cf1471f37bb825b704ec) |
 
 ---
 

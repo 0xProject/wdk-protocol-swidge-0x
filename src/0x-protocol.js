@@ -46,8 +46,10 @@ import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExRe
  * @property {number | bigint} [maxProtocolFeeBps] - Maximum acceptable protocol fee in basis points of the input amount.
  */
 
-// 0x uses this sentinel for native ETH / chain native token
-const NATIVE_TOKEN_ADDRESS = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+// 0x uses this checksummed sentinel for native ETH / chain native token.
+// Must use the EIP-55 checksummed form — the 0x API rejects the all-lowercase variant.
+const NATIVE_TOKEN_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeeeE'
+const NATIVE_TOKEN_ADDRESS_LOWER = NATIVE_TOKEN_ADDRESS.toLowerCase()
 
 // Identifiers callers may pass to mean "native token"
 const NATIVE_TOKEN_ALIASES = new Set([
@@ -55,7 +57,7 @@ const NATIVE_TOKEN_ALIASES = new Set([
   'native',
   'eth',
   '0x0000000000000000000000000000000000000000',
-  '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+  NATIVE_TOKEN_ADDRESS_LOWER
 ])
 
 /** @type {SwidgeSupportedChain[]} */
@@ -512,7 +514,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
 
     // Network fee: only comparable when selling the native token
     if (maxNetworkFeeBps != null && quote.totalNetworkFee) {
-      if (sellToken.toLowerCase() === NATIVE_TOKEN_ADDRESS) {
+      if (sellToken.toLowerCase() === NATIVE_TOKEN_ADDRESS_LOWER) {
         const bps = (Number(quote.totalNetworkFee) / sellAmount) * 10000
         if (bps > Number(maxNetworkFeeBps)) {
           throw new ZeroExFeeLimitExceededError('network', bps, Number(maxNetworkFeeBps))
