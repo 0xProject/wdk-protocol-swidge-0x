@@ -227,6 +227,21 @@ The following fields from `SwidgeCommonOptions` are accepted by the interface bu
 
 ---
 
+## Rate limits
+
+The 0x Swap API enforces rate limits based on your plan tier:
+
+| Plan | Rate limit |
+|---|---|
+| Standard (free) | 5 requests per second |
+| Custom | Higher limits available on request |
+
+Limits are enforced on fixed 1-second windows across all endpoints combined. The API returns HTTP `429 Too Many Requests` when the limit is exceeded.
+
+See the [0x rate limits documentation](https://docs.0x.org/docs/developer-resources/rate-limits) for details and to discuss higher limits.
+
+---
+
 ## Support
 
 Open an issue at [github.com/0xProject/wdk-protocol-swidge-0x/issues](https://github.com/0xProject/wdk-protocol-swidge-0x/issues).
