@@ -18,7 +18,7 @@ import { SwidgeProtocol } from '@tetherto/wdk-wallet/protocols'
 import { NotImplementedError } from '@tetherto/wdk-wallet'
 
 import ZeroExApiClient from './api-client.js'
-import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError } from './errors.js'
+import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError, ZeroExValidationError, ZeroExUnsupportedOperationError, ZeroExTransactionRevertedError, ZeroExTimeoutError } from './errors.js'
 
 /** @typedef {import('@tetherto/wdk-wallet').IWalletAccount} IWalletAccount */
 /** @typedef {import('@tetherto/wdk-wallet').IWalletAccountReadOnly} IWalletAccountReadOnly */
@@ -154,13 +154,13 @@ export default class ZeroExProtocol extends SwidgeProtocol {
    */
   async quoteSwidge (options) {
     if (options.fromTokenAmount == null && options.toTokenAmount == null) {
-      throw new Error('Either fromTokenAmount (exact-in) or toTokenAmount (exact-out) must be provided.')
+      throw new ZeroExValidationError('Either fromTokenAmount (exact-in) or toTokenAmount (exact-out) must be provided.')
     }
 
     const chainId = Number(this._config.chainId)
 
     if (options.toChain != null && Number(options.toChain) !== chainId) {
-      throw new Error(
+      throw new ZeroExUnsupportedOperationError(
         `Cross-chain bridging is not supported. toChain (${options.toChain}) must match the configured chainId (${chainId}).`
       )
     }
@@ -242,7 +242,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
     const chainId = Number(this._config.chainId)
 
     if (options.toChain != null && Number(options.toChain) !== chainId) {
-      throw new Error(
+      throw new ZeroExUnsupportedOperationError(
         `Cross-chain bridging is not supported. toChain (${options.toChain}) must match the configured chainId (${chainId}).`
       )
     }
@@ -280,7 +280,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
     // Handle ERC-20 approval if required
     if (!isNative && !this._config.skipApproval && quote.issues?.allowance != null) {
       if (typeof this._account.approve !== 'function') {
-        throw new Error(
+        throw new ZeroExValidationError(
           'Cannot approve the sell token: the wallet account does not support ERC-20 approvals.'
         )
       }
@@ -332,7 +332,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
    */
   async getSwidgeStatus (id, options) {
     if (typeof id !== 'string' || id.length === 0) {
-      throw new Error('Invalid swidge identifier.')
+      throw new ZeroExValidationError('Invalid swidge identifier.')
     }
 
     let chainId, hash
@@ -343,7 +343,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
     } else {
       const fromChain = options?.fromChain ?? this._config.chainId
       if (fromChain == null) {
-        throw new Error(
+        throw new ZeroExValidationError(
           "Cannot resolve the source chain: pass an id in the '<chainId>:<hash>' format, or provide the fromChain status option."
         )
       }
@@ -352,7 +352,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
     }
 
     if (!hash.startsWith('0x') || hash.length < 10) {
-      throw new Error(`Invalid transaction hash in swidge identifier: '${hash}'.`)
+      throw new ZeroExValidationError(`Invalid transaction hash in swidge identifier: '${hash}'.`)
     }
 
     /** @type {SwidgeTransaction[]} */
@@ -554,13 +554,13 @@ export default class ZeroExProtocol extends SwidgeProtocol {
       if (receipt) {
         const success = receipt.status === 1 || receipt.status === 1n || receipt.status === true
         if (!success) {
-          throw new Error(`Transaction '${hash}' reverted.`)
+          throw new ZeroExTransactionRevertedError(hash)
         }
         return receipt
       }
       await new Promise(resolve => setTimeout(resolve, intervalMs))
     }
 
-    throw new Error(`Timed out waiting for transaction '${hash}' to be mined.`)
+    throw new ZeroExTimeoutError(hash)
   }
 }

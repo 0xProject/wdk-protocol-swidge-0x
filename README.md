@@ -153,11 +153,11 @@ For native ETH (or any chain's native token) as a **buy token**, use `0xEeeeeEee
 
 ## Fee mapping
 
-| 0x response field | `SwidgeFeeType` | Notes |
-|---|---|---|
-| `totalNetworkFee` | `network` | Denominated in the chain's native token (e.g. ETH) |
-| `fees.zeroExFee` | `protocol` | 0x protocol fee |
-| `fees.integratorFee` | `affiliate` | Integrator / referral fee |
+| 0x response field | `SwidgeFeeType` | Notes | Legacy mapping |
+|---|---|---|---|
+| `totalNetworkFee` | `network` | Denominated in the chain's native token (e.g. ETH) | `fee` |
+| `fees.zeroExFee` | `protocol` | 0x protocol fee | `bridgeFee` |
+| `fees.integratorFee` | `affiliate` | Integrator / referral fee | not visible |
 
 Fee caps (`maxNetworkFeeBps`, `maxProtocolFeeBps`) are only enforced when the fee token matches the sell token. Cross-token comparisons are skipped because price data is not available in the API response.
 
@@ -171,6 +171,10 @@ Fee caps (`maxNetworkFeeBps`, `maxProtocolFeeBps`) are only enforced when the fe
 | `ZeroExInsufficientLiquidityError` | `liquidityAvailable: false` in the price response |
 | `ZeroExFeeLimitExceededError` | A quoted fee exceeds a configured `maxNetworkFeeBps` or `maxProtocolFeeBps` cap |
 | `ZeroExReadOnlyError` | `swidge` is called without a full signing account |
+| `ZeroExValidationError` | Invalid or missing input parameters |
+| `ZeroExUnsupportedOperationError` | An unsupported operation is requested (e.g. cross-chain `toChain`) |
+| `ZeroExTransactionRevertedError` | The swap transaction reverted on-chain |
+| `ZeroExTimeoutError` | Timed out waiting for transaction confirmation |
 | `NotImplementedError` | `getSupportedTokens()` is called |
 
 ---
