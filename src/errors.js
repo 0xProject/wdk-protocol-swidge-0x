@@ -61,6 +61,62 @@ export class ZeroExReadOnlyError extends Error {
 }
 
 /**
+ * Thrown when invalid or missing input parameters are passed to an interface method.
+ */
+export class ZeroExValidationError extends Error {
+  /**
+   * @param {string} message
+   */
+  constructor (message) {
+    super(message)
+    this.name = 'ZeroExValidationError'
+  }
+}
+
+/**
+ * Thrown when an operation is not supported by this module (e.g. cross-chain bridging).
+ */
+export class ZeroExUnsupportedOperationError extends Error {
+  /**
+   * @param {string} message
+   */
+  constructor (message) {
+    super(message)
+    this.name = 'ZeroExUnsupportedOperationError'
+  }
+}
+
+/**
+ * Thrown when a swap transaction reverts on-chain.
+ */
+export class ZeroExTransactionRevertedError extends Error {
+  /**
+   * @param {string} hash - The transaction hash that reverted.
+   */
+  constructor (hash) {
+    super(`Transaction '${hash}' reverted.`)
+    this.name = 'ZeroExTransactionRevertedError'
+    /** @type {string} */
+    this.hash = hash
+  }
+}
+
+/**
+ * Thrown when polling for a transaction receipt exceeds the timeout.
+ */
+export class ZeroExTimeoutError extends Error {
+  /**
+   * @param {string} hash - The transaction hash that timed out.
+   */
+  constructor (hash) {
+    super(`Timed out waiting for transaction '${hash}' to be mined.`)
+    this.name = 'ZeroExTimeoutError'
+    /** @type {string} */
+    this.hash = hash
+  }
+}
+
+/**
  * Thrown when a quoted fee exceeds a configured fee cap.
  */
 export class ZeroExFeeLimitExceededError extends Error {
