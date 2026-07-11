@@ -135,7 +135,7 @@ Call `getSupportedChains()` to retrieve the full list at runtime.
 
 The 0x Swap API accepts **any liquid ERC-20 token by contract address**. There is no supported token list — `getSupportedTokens()` throws `NotImplementedError`. Pass token addresses directly to `quoteSwidge` and `swidge`.
 
-For native ETH (or any chain's native token) as a **buy token**, use `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeeeE` or the alias `'native'`. Selling native ETH is not supported by the AllowanceHolder flow — wrap to WETH first.
+For native ETH (or any chain's native token) as a **buy token**, use `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` or the alias `'native'`. Selling native ETH is not supported by the AllowanceHolder flow — wrap to WETH first.
 
 ---
 
