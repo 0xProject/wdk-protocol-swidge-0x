@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals'
 
 import ZeroExProtocol from '../index.js'
-import { ZeroExApiError, ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError } from '../src/errors.js'
+import ZeroExApiClient from '../src/api-client.js'
+import { ZeroExApiError, ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError, ZeroExValidationError, ZeroExTransactionRevertedError, ZeroExTimeoutError } from '../src/errors.js'
 import { NotImplementedError } from '@tetherto/wdk-wallet'
 
 const BASE_URL = 'https://api.0x.org'
@@ -178,6 +179,12 @@ describe('ZeroExProtocol', () => {
       ).rejects.toThrow()
     })
 
+    test('throws when both fromTokenAmount and toTokenAmount given', async () => {
+      await expect(
+        protocol.quoteSwidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 1n, toTokenAmount: 1n })
+      ).rejects.toThrow(ZeroExValidationError)
+    })
+
     test('throws when toChain differs from configured chainId', async () => {
       await expect(
         protocol.quoteSwidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 1n, toChain: 42161 })
@@ -189,6 +196,34 @@ describe('ZeroExProtocol', () => {
       await expect(
         readOnlyProtocol.quoteSwidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 1n })
       ).resolves.toBeDefined()
+    })
+
+    test('derives toTokenAmountMin from slippage when minBuyAmount is absent (exact-in)', async () => {
+      const { minBuyAmount, ...noMin } = PRICE_RESPONSE
+      global.fetch = mockFetch({ '/swap/allowance-holder/price': noMin })
+
+      const quote = await protocol.quoteSwidge({
+        fromToken: USDC,
+        toToken: WETH,
+        fromTokenAmount: 100000000n,
+        slippage: 0.01
+      })
+
+      expect(quote.toTokenAmountMin > 0n).toBe(true)
+      expect(quote.toTokenAmountMin < quote.toTokenAmount).toBe(true)
+    })
+
+    test('sets toTokenAmountMin to the requested amount for exact-out without minBuyAmount', async () => {
+      const { minBuyAmount, ...noMin } = PRICE_RESPONSE
+      global.fetch = mockFetch({ '/swap/allowance-holder/price': noMin })
+
+      const quote = await protocol.quoteSwidge({
+        fromToken: USDC,
+        toToken: WETH,
+        toTokenAmount: 500000000000000n
+      })
+
+      expect(quote.toTokenAmountMin).toBe(500000000000000n)
     })
 
     test('wraps 0x API errors', async () => {
@@ -209,7 +244,7 @@ describe('ZeroExProtocol', () => {
 
       const call = global.fetch.mock.calls[0][0]
       expect(new URL(call).searchParams.get('sellToken')).toBe(
-        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+        '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
       )
     })
   })
@@ -284,6 +319,42 @@ describe('ZeroExProtocol', () => {
       await expect(
         protocol.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 1n, toChain: 42161 })
       ).rejects.toThrow('Cross-chain bridging is not supported')
+    })
+
+    test('throws when both fromTokenAmount and toTokenAmount given', async () => {
+      await expect(
+        protocol.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 1n, toTokenAmount: 1n })
+      ).rejects.toThrow(ZeroExValidationError)
+    })
+
+    test('throws ZeroExInsufficientLiquidityError when quote has no liquidity', async () => {
+      global.fetch = mockFetch({
+        '/swap/allowance-holder/quote': { ...QUOTE_RESPONSE, liquidityAvailable: false }
+      })
+
+      await expect(
+        protocol.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 100000000n })
+      ).rejects.toThrow(ZeroExInsufficientLiquidityError)
+
+      expect(account.sendTransaction).not.toHaveBeenCalled()
+    })
+
+    test('throws ZeroExTransactionRevertedError when the approval tx reverts', async () => {
+      account.getTransactionReceipt.mockResolvedValue({ status: 0 })
+
+      await expect(
+        protocol.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 100000000n })
+      ).rejects.toThrow(ZeroExTransactionRevertedError)
+
+      expect(account.sendTransaction).not.toHaveBeenCalled()
+    })
+
+    test('_waitForReceipt throws ZeroExTimeoutError when no receipt appears before the deadline', async () => {
+      const acc = { getTransactionReceipt: jest.fn(async () => null) }
+
+      await expect(
+        protocol._waitForReceipt(acc, '0xdeadbeef', { intervalMs: 1, timeoutMs: 5 })
+      ).rejects.toThrow(ZeroExTimeoutError)
     })
 
     test('throws ZeroExReadOnlyError when no account is bound', async () => {
@@ -491,5 +562,11 @@ describe('ZeroExProtocol', () => {
       expect(result.tokenInAmount).toBe(100000000n)
       expect(result.tokenOutAmount).toBe(1000000000000000n)
     })
+  })
+})
+
+describe('ZeroExApiClient', () => {
+  test('throws without an apiKey', () => {
+    expect(() => new ZeroExApiClient({})).toThrow('apiKey')
   })
 })

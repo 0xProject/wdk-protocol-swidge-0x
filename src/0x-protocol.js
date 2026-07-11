@@ -40,7 +40,7 @@ import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExRe
  * @property {number | string} chainId - The EVM chain ID of the bound wallet account. Required.
  * @property {string} apiKey - The 0x API key. Required.
  * @property {string} [baseUrl] - The 0x API base URL. Defaults to 'https://api.0x.org'.
- * @property {number} [defaultSlippage] - Default slippage tolerance as a decimal (e.g. 0.005 = 0.5%). Defaults to 0.005.
+ * @property {number} [defaultSlippage] - Default slippage tolerance as a decimal (e.g. 0.005 = 0.5%). If omitted, no slippage parameter is sent and the 0x API default applies.
  * @property {boolean} [skipApproval] - Skip automatic ERC-20 approval before executing a swap.
  * @property {number | bigint} [maxNetworkFeeBps] - Maximum acceptable network fee in basis points of the input amount.
  * @property {number | bigint} [maxProtocolFeeBps] - Maximum acceptable protocol fee in basis points of the input amount.
@@ -48,7 +48,7 @@ import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExRe
 
 // 0x uses this checksummed sentinel for native ETH / chain native token.
 // Must use the EIP-55 checksummed form — the 0x API rejects the all-lowercase variant.
-const NATIVE_TOKEN_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeeeE'
+const NATIVE_TOKEN_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 const NATIVE_TOKEN_ADDRESS_LOWER = NATIVE_TOKEN_ADDRESS.toLowerCase()
 
 // Identifiers callers may pass to mean "native token"
@@ -120,10 +120,10 @@ export default class ZeroExProtocol extends SwidgeProtocol {
     super(account, config)
 
     if (!config.apiKey) {
-      throw new Error('ZeroExProtocol requires config.apiKey.')
+      throw new ZeroExValidationError('ZeroExProtocol requires config.apiKey.')
     }
     if (config.chainId == null) {
-      throw new Error('ZeroExProtocol requires config.chainId identifying the EVM chain of the bound account.')
+      throw new ZeroExValidationError('ZeroExProtocol requires config.chainId identifying the EVM chain of the bound account.')
     }
 
     /**
@@ -153,9 +153,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
    * @throws {ZeroExInsufficientLiquidityError} If no route is available.
    */
   async quoteSwidge (options) {
-    if (options.fromTokenAmount == null && options.toTokenAmount == null) {
-      throw new ZeroExValidationError('Either fromTokenAmount (exact-in) or toTokenAmount (exact-out) must be provided.')
-    }
+    this._assertExactlyOneAmount(options)
 
     const chainId = Number(this._config.chainId)
 
@@ -231,7 +229,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
    * @param {SwidgeOptions} options
    * @param {SwidgeProtocolConfig} [config] - Per-call overrides for fee caps.
    * @returns {Promise<SwidgeResult>}
-   * @throws {Error} If no full account was provided at construction.
+   * @throws {ZeroExReadOnlyError} If no full account was provided at construction.
    * @throws {ZeroExFeeLimitExceededError} If a fee cap is exceeded.
    */
   async swidge (options, config) {
@@ -246,6 +244,8 @@ export default class ZeroExProtocol extends SwidgeProtocol {
         `Cross-chain bridging is not supported. toChain (${options.toChain}) must match the configured chainId (${chainId}).`
       )
     }
+    this._assertExactlyOneAmount(options)
+
     const sellToken = this._normalizeToken(options.fromToken)
     const buyToken = this._normalizeToken(options.toToken)
     const taker = await this._account.getAddress()
@@ -268,6 +268,10 @@ export default class ZeroExProtocol extends SwidgeProtocol {
     if (options.recipient) params.recipient = options.recipient
 
     const quote = await this._api.quote(chainId, params)
+
+    if (!quote.liquidityAvailable) {
+      throw new ZeroExInsufficientLiquidityError({ sellToken, buyToken, chainId })
+    }
 
     this._checkFeeLimits(quote, sellToken, config)
 
@@ -404,6 +408,25 @@ export default class ZeroExProtocol extends SwidgeProtocol {
   // ---------------------------------------------------------------------------
   // Protected helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Asserts that exactly one of fromTokenAmount (exact-in) or toTokenAmount
+   * (exact-out) is provided.
+   *
+   * @protected
+   * @param {SwidgeOptions} options
+   * @throws {ZeroExValidationError} If neither or both amounts are provided.
+   */
+  _assertExactlyOneAmount (options) {
+    const hasIn = options.fromTokenAmount != null
+    const hasOut = options.toTokenAmount != null
+    if (!hasIn && !hasOut) {
+      throw new ZeroExValidationError('Either fromTokenAmount (exact-in) or toTokenAmount (exact-out) must be provided.')
+    }
+    if (hasIn && hasOut) {
+      throw new ZeroExValidationError('Provide either fromTokenAmount (exact-in) or toTokenAmount (exact-out), not both.')
+    }
+  }
 
   /**
    * Resolves the taker address from the bound account or the options recipient.
