@@ -18,7 +18,7 @@ import { SwidgeProtocol } from '@tetherto/wdk-wallet/protocols'
 import { NotImplementedError } from '@tetherto/wdk-wallet'
 
 import ZeroExApiClient from './api-client.js'
-import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError, ZeroExValidationError, ZeroExUnsupportedOperationError, ZeroExTransactionRevertedError, ZeroExTimeoutError } from './errors.js'
+import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError, ZeroExValidationError, ZeroExUnsupportedOperationError, ZeroExUnknownTransactionError, ZeroExTransactionRevertedError, ZeroExTimeoutError } from './errors.js'
 
 /** @typedef {import('@tetherto/wdk-wallet').IWalletAccount} IWalletAccount */
 /** @typedef {import('@tetherto/wdk-wallet').IWalletAccountReadOnly} IWalletAccountReadOnly */
@@ -42,8 +42,8 @@ import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExRe
  * @property {string} [baseUrl] - The 0x API base URL. Defaults to 'https://api.0x.org'.
  * @property {number} [defaultSlippage] - Default slippage tolerance as a decimal (e.g. 0.005 = 0.5%). If omitted, no slippage parameter is sent and the 0x API default applies.
  * @property {boolean} [skipApproval] - Skip automatic ERC-20 approval before executing a swap.
- * @property {number | bigint} [maxNetworkFeeBps] - Maximum acceptable network fee in basis points of the input amount.
- * @property {number | bigint} [maxProtocolFeeBps] - Maximum acceptable protocol fee in basis points of the input amount.
+ * @property {number | bigint} [maxNetworkFeeBps] - Maximum acceptable network fee in basis points of the input amount. When the sell token is not the chain's native token, evaluating this cap costs one extra 0x `/price` request to convert the native-denominated fee into input-token terms; the swap is rejected fail-closed if that conversion is unavailable.
+ * @property {number | bigint} [maxProtocolFeeBps] - Maximum acceptable protocol fee in basis points of the input amount. Enforced fail-closed: if the protocol fee is denominated in a token other than the sell token it cannot be compared and the swap is rejected.
  */
 
 // 0x uses this checksummed sentinel for native ETH / chain native token.
@@ -273,7 +273,7 @@ export default class ZeroExProtocol extends SwidgeProtocol {
       throw new ZeroExInsufficientLiquidityError({ sellToken, buyToken, chainId })
     }
 
-    this._checkFeeLimits(quote, sellToken, config)
+    await this._checkFeeLimits(quote, sellToken, chainId, config)
 
     const sellAmount = BigInt(quote.sellAmount)
     const isNative = NATIVE_TOKEN_ALIASES.has(sellToken.toLowerCase())
@@ -322,9 +322,18 @@ export default class ZeroExProtocol extends SwidgeProtocol {
   /**
    * Returns the current status of a submitted swap.
    *
-   * Status is resolved by checking the on-chain transaction receipt via the
-   * bound account. If the account does not support receipt lookups, or no
-   * receipt is found yet, the status is reported as `pending`.
+   * Status is resolved from on-chain state via the bound account:
+   * - If the account exposes `getTransactionByHash`, the transaction's existence
+   *   is checked first. A `null` result means the network has no record of the
+   *   transaction, so a {@link ZeroExUnknownTransactionError} is thrown (a
+   *   well-formed id that will never resolve must not stay `pending` forever).
+   * - The transaction receipt then determines `completed` / `failed`, or
+   *   `pending` while the transaction is in-flight.
+   *
+   * Fallback: if the account does not expose `getTransactionByHash`, an unknown
+   * transaction is indistinguishable from an in-flight one, so status is derived
+   * from the receipt alone and reported as `pending` when no receipt exists yet.
+   * If the account exposes neither method, status is always `pending`.
    *
    * The `id` must be in the format `'<chainId>:<txHash>'` as returned by
    * {@link swidge}, or a bare transaction hash combined with `options.fromChain`.
@@ -332,7 +341,8 @@ export default class ZeroExProtocol extends SwidgeProtocol {
    * @param {string} id
    * @param {SwidgeStatusOptions} [options]
    * @returns {Promise<SwidgeStatusResult>}
-   * @throws {Error} If `id` is invalid.
+   * @throws {ZeroExValidationError} If `id` is malformed.
+   * @throws {ZeroExUnknownTransactionError} If the transaction is unknown to the network.
    */
   async getSwidgeStatus (id, options) {
     if (typeof id !== 'string' || id.length === 0) {
@@ -361,6 +371,23 @@ export default class ZeroExProtocol extends SwidgeProtocol {
 
     /** @type {SwidgeTransaction[]} */
     const transactions = [{ hash, chain: chainId, type: 'source' }]
+
+    // Prefer getTransactionByHash so an unknown tx (never broadcast / dropped)
+    // can be distinguished from one that is merely still in-flight, and throw on
+    // an unknown id rather than reporting pending forever.
+    if (this._account && typeof this._account.getTransactionByHash === 'function') {
+      let tx
+      try {
+        tx = await this._account.getTransactionByHash(hash)
+      } catch {
+        // A lookup failure is indeterminate, not proof the tx is unknown.
+        return { status: 'pending', transactions }
+      }
+      if (!tx) {
+        throw new ZeroExUnknownTransactionError(hash)
+      }
+      // Tx exists — fall through to the receipt check for completed/failed/pending.
+    }
 
     if (!this._account || typeof this._account.getTransactionReceipt !== 'function') {
       return { status: 'pending', transactions }
@@ -516,17 +543,27 @@ export default class ZeroExProtocol extends SwidgeProtocol {
   /**
    * Checks that the quoted fees do not exceed the configured caps.
    *
-   * Fee caps are only enforced when the fee is denominated in the same token as
-   * the sell token, since cross-token comparison requires price data that is not
-   * available in the API response.
+   * Both caps are expressed in basis points of the (sell-token) input amount and
+   * are enforced fail-closed: if a cap is configured but the fee cannot be
+   * evaluated in input-token terms, execution is rejected.
+   *
+   * - Network fee (`totalNetworkFee`) is always denominated in the chain's native
+   *   token. When the sell token is that native token the comparison is direct;
+   *   otherwise the fee is converted into sell-token terms via an extra 0x
+   *   `/price` call (native → sell token), at the cost of one additional request.
+   * - Protocol fee (`fees.zeroExFee`) is compared directly when its fee token
+   *   matches the sell token; if it is denominated in another token it cannot be
+   *   compared and the swap is rejected fail-closed.
    *
    * @protected
    * @param {Object} quote - 0x API quote response.
    * @param {string} sellToken - Normalised sell token address.
+   * @param {number} chainId
    * @param {SwidgeProtocolConfig} [callConfig] - Per-call override config.
+   * @returns {Promise<void>}
    * @throws {ZeroExFeeLimitExceededError}
    */
-  _checkFeeLimits (quote, sellToken, callConfig) {
+  async _checkFeeLimits (quote, sellToken, chainId, callConfig) {
     const maxNetworkFeeBps = callConfig?.maxNetworkFeeBps ?? this._config.maxNetworkFeeBps
     const maxProtocolFeeBps = callConfig?.maxProtocolFeeBps ?? this._config.maxProtocolFeeBps
 
@@ -535,25 +572,64 @@ export default class ZeroExProtocol extends SwidgeProtocol {
     const sellAmount = Number(quote.sellAmount)
     if (!sellAmount) return
 
-    // Network fee: only comparable when selling the native token
+    const sellTokenLower = sellToken.toLowerCase()
+
+    // Network fee (native token) → bps of the sell-token input.
     if (maxNetworkFeeBps != null && quote.totalNetworkFee) {
-      if (sellToken.toLowerCase() === NATIVE_TOKEN_ADDRESS_LOWER) {
-        const bps = (Number(quote.totalNetworkFee) / sellAmount) * 10000
-        if (bps > Number(maxNetworkFeeBps)) {
-          throw new ZeroExFeeLimitExceededError('network', bps, Number(maxNetworkFeeBps))
+      let feeInSellToken
+      if (sellTokenLower === NATIVE_TOKEN_ADDRESS_LOWER) {
+        // Fee and input share the native denomination — compare directly.
+        feeInSellToken = Number(quote.totalNetworkFee)
+      } else {
+        // Convert the native-denominated fee into sell-token units.
+        feeInSellToken = await this._convertNativeToToken(chainId, quote.totalNetworkFee, sellToken)
+        if (feeInSellToken == null) {
+          // Cap configured but not evaluable — fail closed.
+          throw new ZeroExFeeLimitExceededError('network', null, Number(maxNetworkFeeBps))
         }
+      }
+      const bps = (feeInSellToken / sellAmount) * 10000
+      if (bps > Number(maxNetworkFeeBps)) {
+        throw new ZeroExFeeLimitExceededError('network', bps, Number(maxNetworkFeeBps))
       }
     }
 
-    // Protocol fee: comparable only when fee token matches sell token
+    // Protocol fee: comparable only when the fee token matches the sell token.
     if (maxProtocolFeeBps != null && quote.fees?.zeroExFee?.feeAmount) {
       const feeToken = (quote.fees.zeroExFee.feeToken ?? '').toLowerCase()
-      if (feeToken === sellToken.toLowerCase()) {
-        const bps = (Number(quote.fees.zeroExFee.feeAmount) / sellAmount) * 10000
-        if (bps > Number(maxProtocolFeeBps)) {
-          throw new ZeroExFeeLimitExceededError('protocol', bps, Number(maxProtocolFeeBps))
-        }
+      if (feeToken !== sellTokenLower) {
+        // Fee denominated in another token cannot be compared — fail closed.
+        throw new ZeroExFeeLimitExceededError('protocol', null, Number(maxProtocolFeeBps))
       }
+      const bps = (Number(quote.fees.zeroExFee.feeAmount) / sellAmount) * 10000
+      if (bps > Number(maxProtocolFeeBps)) {
+        throw new ZeroExFeeLimitExceededError('protocol', bps, Number(maxProtocolFeeBps))
+      }
+    }
+  }
+
+  /**
+   * Converts an amount denominated in the chain's native token into sell-token
+   * units using an indicative 0x `/price` quote (native → token).
+   *
+   * @protected
+   * @param {number} chainId
+   * @param {string | number | bigint} nativeAmount - Amount in native-token base units.
+   * @param {string} token - Target token address (the sell token).
+   * @returns {Promise<number | null>} The equivalent amount in `token` base units, or
+   *   `null` when no route is available or the request fails.
+   */
+  async _convertNativeToToken (chainId, nativeAmount, token) {
+    try {
+      const res = await this._api.price(chainId, {
+        sellToken: NATIVE_TOKEN_ADDRESS,
+        buyToken: token,
+        sellAmount: BigInt(nativeAmount).toString()
+      })
+      if (!res.liquidityAvailable || res.buyAmount == null) return null
+      return Number(res.buyAmount)
+    } catch {
+      return null
     }
   }
 

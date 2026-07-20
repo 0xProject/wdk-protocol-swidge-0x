@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals'
 
 import ZeroExProtocol from '../index.js'
 import ZeroExApiClient from '../src/api-client.js'
-import { ZeroExApiError, ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError, ZeroExValidationError, ZeroExTransactionRevertedError, ZeroExTimeoutError } from '../src/errors.js'
+import { ZeroExApiError, ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExReadOnlyError, ZeroExValidationError, ZeroExUnknownTransactionError, ZeroExTransactionRevertedError, ZeroExTimeoutError } from '../src/errors.js'
 import { NotImplementedError } from '@tetherto/wdk-wallet'
 
 const BASE_URL = 'https://api.0x.org'
@@ -399,6 +399,72 @@ describe('ZeroExProtocol', () => {
         )
       ).resolves.toBeDefined()
     })
+
+    test('protocol fee cap fails closed when fee token differs from sell token', async () => {
+      // zeroExFee is denominated in WETH, not the USDC sell token → not evaluable
+      global.fetch = mockFetch({
+        '/swap/allowance-holder/quote': {
+          ...QUOTE_RESPONSE,
+          fees: { ...QUOTE_RESPONSE.fees, zeroExFee: { ...QUOTE_RESPONSE.fees.zeroExFee, feeToken: WETH } }
+        }
+      })
+      const p = new ZeroExProtocol(account, { chainId: 1, apiKey: 'key', maxProtocolFeeBps: 100 })
+
+      await expect(
+        p.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 100000000n })
+      ).rejects.toThrow(ZeroExFeeLimitExceededError)
+      expect(account.sendTransaction).not.toHaveBeenCalled()
+    })
+
+    test('network fee cap: converts native fee via an extra /price call and passes under the cap', async () => {
+      // quote: 1e8 USDC in, 3e15 native fee. Conversion /price says that fee is
+      // worth 100000 USDC-base-units → 100000 / 1e8 * 10000 = 10 bps.
+      global.fetch = mockFetch({
+        '/swap/allowance-holder/quote': QUOTE_RESPONSE,
+        '/swap/allowance-holder/price': { liquidityAvailable: true, buyAmount: '100000' }
+      })
+      const p = new ZeroExProtocol(account, { chainId: 1, apiKey: 'key', maxNetworkFeeBps: 50 })
+
+      await expect(
+        p.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 100000000n })
+      ).resolves.toBeDefined()
+
+      // Verify the conversion call was native → sell token
+      const priceCall = global.fetch.mock.calls.find(c => new URL(c[0]).pathname.endsWith('/price'))
+      const params = new URL(priceCall[0]).searchParams
+      expect(params.get('sellToken')).toBe('0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE')
+      expect(params.get('buyToken')).toBe(USDC)
+      expect(params.get('sellAmount')).toBe('3000000000000000')
+    })
+
+    test('network fee cap: throws when the converted fee exceeds the cap', async () => {
+      // Conversion says the fee is worth 5e6 USDC-base-units → 500 bps > 50 cap
+      global.fetch = mockFetch({
+        '/swap/allowance-holder/quote': QUOTE_RESPONSE,
+        '/swap/allowance-holder/price': { liquidityAvailable: true, buyAmount: '5000000' }
+      })
+      const p = new ZeroExProtocol(account, { chainId: 1, apiKey: 'key', maxNetworkFeeBps: 50 })
+
+      await expect(
+        p.swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 100000000n })
+      ).rejects.toThrow(ZeroExFeeLimitExceededError)
+      expect(account.sendTransaction).not.toHaveBeenCalled()
+    })
+
+    test('network fee cap: fails closed when the native→token conversion has no route', async () => {
+      global.fetch = mockFetch({
+        '/swap/allowance-holder/quote': QUOTE_RESPONSE,
+        '/swap/allowance-holder/price': { liquidityAvailable: false }
+      })
+      const p = new ZeroExProtocol(account, { chainId: 1, apiKey: 'key', maxNetworkFeeBps: 50 })
+
+      const error = await p
+        .swidge({ fromToken: USDC, toToken: WETH, fromTokenAmount: 100000000n })
+        .catch(e => e)
+      expect(error).toBeInstanceOf(ZeroExFeeLimitExceededError)
+      expect(error.actualBps).toBeNull()
+      expect(account.sendTransaction).not.toHaveBeenCalled()
+    })
   })
 
   // ---------------------------------------------------------------------------
@@ -449,6 +515,35 @@ describe('ZeroExProtocol', () => {
       const bareAccount = { getAddress: jest.fn(async () => TAKER) }
       const p = new ZeroExProtocol(bareAccount, { chainId: 1, apiKey: 'key' })
       const result = await p.getSwidgeStatus(`${CHAIN_ID}:0xswaph4sh`)
+      expect(result.status).toBe('pending')
+    })
+
+    test('throws ZeroExUnknownTransactionError when getTransactionByHash returns null', async () => {
+      account.getTransactionByHash = jest.fn(async () => null)
+      await expect(
+        protocol.getSwidgeStatus(`${CHAIN_ID}:0xswaph4sh`)
+      ).rejects.toThrow(ZeroExUnknownTransactionError)
+      // Unknown tx must never reach a receipt lookup
+      expect(account.getTransactionReceipt).not.toHaveBeenCalled()
+    })
+
+    test('returns pending when tx exists but has no receipt yet', async () => {
+      account.getTransactionByHash = jest.fn(async () => ({ hash: '0xswaph4sh' }))
+      account.getTransactionReceipt.mockResolvedValue(null)
+      const result = await protocol.getSwidgeStatus(`${CHAIN_ID}:0xswaph4sh`)
+      expect(result.status).toBe('pending')
+    })
+
+    test('returns completed when tx exists and receipt succeeds', async () => {
+      account.getTransactionByHash = jest.fn(async () => ({ hash: '0xswaph4sh' }))
+      account.getTransactionReceipt.mockResolvedValue({ status: 1 })
+      const result = await protocol.getSwidgeStatus(`${CHAIN_ID}:0xswaph4sh`)
+      expect(result.status).toBe('completed')
+    })
+
+    test('returns pending (not unknown) when getTransactionByHash lookup throws', async () => {
+      account.getTransactionByHash = jest.fn(async () => { throw new Error('rpc down') })
+      const result = await protocol.getSwidgeStatus(`${CHAIN_ID}:0xswaph4sh`)
       expect(result.status).toBe('pending')
     })
   })

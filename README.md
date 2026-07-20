@@ -141,13 +141,18 @@ For native ETH (or any chain's native token) as a **buy token**, use `0xEeeeeEee
 
 ## Status mapping
 
-| 0x / On-chain state | `SwidgeStatus` |
+| On-chain state | `SwidgeStatus` |
 |---|---|
-| No transaction receipt yet | `pending` |
+| Transaction unknown to the network | throws `ZeroExUnknownTransactionError` |
+| Transaction known, no receipt yet | `pending` |
 | Receipt with success status | `completed` |
 | Receipt with reverted status | `failed` |
 
-> The module has no server-side status endpoint. Status is determined by polling the on-chain receipt via the bound wallet account's `getTransactionReceipt` method. If the account does not expose this method, status is always reported as `pending`.
+> The module has no server-side status endpoint; status is resolved from on-chain state via the bound wallet account.
+>
+> When the account exposes `getTransactionByHash`, transaction existence is checked first so a well-formed id that the network has no record of throws `ZeroExUnknownTransactionError` instead of reporting `pending` forever. The receipt then resolves `completed` / `failed`, or `pending` while in-flight.
+>
+> **Fallback:** if the account exposes only `getTransactionReceipt`, an unknown transaction cannot be distinguished from an in-flight one, so status is derived from the receipt alone and reported as `pending` when no receipt exists yet. If the account exposes neither method, status is always `pending`.
 
 ---
 
@@ -159,7 +164,10 @@ For native ETH (or any chain's native token) as a **buy token**, use `0xEeeeeEee
 | `fees.zeroExFee` | `protocol` | 0x protocol fee | `bridgeFee` |
 | `fees.integratorFee` | `affiliate` | Integrator / referral fee | not visible |
 
-Fee caps (`maxNetworkFeeBps`, `maxProtocolFeeBps`) are only enforced when the fee token matches the sell token. Cross-token comparisons are skipped because price data is not available in the API response.
+Fee caps (`maxNetworkFeeBps`, `maxProtocolFeeBps`) are expressed in basis points of the sell-token input amount and enforced **fail-closed** — a configured cap that cannot be evaluated rejects the swap with `ZeroExFeeLimitExceededError`:
+
+- **`maxNetworkFeeBps`** — the network fee is always denominated in the chain's native token. When the sell token *is* the native token the comparison is direct; otherwise the fee is converted into sell-token terms via one extra 0x `/price` request (native → sell token). If no conversion route is available, the swap is rejected.
+- **`maxProtocolFeeBps`** — compared directly when the protocol fee token matches the sell token (the common case). If the fee comes back denominated in another token it cannot be compared and the swap is rejected.
 
 ---
 
@@ -169,10 +177,11 @@ Fee caps (`maxNetworkFeeBps`, `maxProtocolFeeBps`) are only enforced when the fe
 |---|---|
 | `ZeroExApiError` | The 0x API returned a non-2xx response |
 | `ZeroExInsufficientLiquidityError` | `liquidityAvailable: false` in the price response |
-| `ZeroExFeeLimitExceededError` | A quoted fee exceeds a configured `maxNetworkFeeBps` or `maxProtocolFeeBps` cap |
+| `ZeroExFeeLimitExceededError` | A quoted fee exceeds a configured `maxNetworkFeeBps` / `maxProtocolFeeBps` cap, or a configured cap cannot be evaluated (fail-closed) |
 | `ZeroExReadOnlyError` | `swidge` is called without a full signing account |
 | `ZeroExValidationError` | Invalid or missing input parameters |
 | `ZeroExUnsupportedOperationError` | An unsupported operation is requested (e.g. cross-chain `toChain`) |
+| `ZeroExUnknownTransactionError` | `getSwidgeStatus` is called for a transaction the network has no record of |
 | `ZeroExTransactionRevertedError` | The swap transaction reverted on-chain |
 | `ZeroExTimeoutError` | Timed out waiting for transaction confirmation |
 | `NotImplementedError` | `getSupportedTokens()` is called |
