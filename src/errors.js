@@ -87,6 +87,22 @@ export class ZeroExUnsupportedOperationError extends Error {
 }
 
 /**
+ * Thrown when a status lookup is requested for a transaction the network does
+ * not know about (well-formed id, but no such transaction exists).
+ */
+export class ZeroExUnknownTransactionError extends Error {
+  /**
+   * @param {string} hash - The transaction hash that could not be found.
+   */
+  constructor (hash) {
+    super(`Unknown transaction '${hash}': the network has no record of it.`)
+    this.name = 'ZeroExUnknownTransactionError'
+    /** @type {string} */
+    this.hash = hash
+  }
+}
+
+/**
  * Thrown when a swap transaction reverts on-chain.
  */
 export class ZeroExTransactionRevertedError extends Error {
@@ -117,22 +133,26 @@ export class ZeroExTimeoutError extends Error {
 }
 
 /**
- * Thrown when a quoted fee exceeds a configured fee cap.
+ * Thrown when a quoted fee exceeds a configured fee cap, or when a cap is
+ * configured but the fee cannot be evaluated (fail-closed).
  */
 export class ZeroExFeeLimitExceededError extends Error {
   /**
    * @param {'network' | 'protocol'} feeType
-   * @param {number} actualBps - Actual fee in basis points.
+   * @param {number | null} actualBps - Actual fee in basis points, or `null` when the
+   *   fee could not be evaluated against the cap (execution is rejected fail-closed).
    * @param {number} limitBps - Configured maximum in basis points.
    */
   constructor (feeType, actualBps, limitBps) {
     super(
-      `The quoted ${feeType} fee (${actualBps.toFixed(2)} bps) exceeds the configured maximum of ${limitBps} bps.`
+      actualBps == null
+        ? `The ${feeType} fee could not be evaluated against the configured maximum of ${limitBps} bps; execution rejected (fail-closed).`
+        : `The quoted ${feeType} fee (${actualBps.toFixed(2)} bps) exceeds the configured maximum of ${limitBps} bps.`
     )
     this.name = 'ZeroExFeeLimitExceededError'
     /** @type {'network' | 'protocol'} */
     this.feeType = feeType
-    /** @type {number} */
+    /** @type {number | null} */
     this.actualBps = actualBps
     /** @type {number} */
     this.limitBps = limitBps
