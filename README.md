@@ -1,6 +1,6 @@
 # @0x/wdk-protocol-swidge-0x
 
-[![Powered by WDK](https://img.shields.io/badge/Powered%20by-WDK-7B3FE4)](https://docs.wdk.tether.io)
+<a href="https://docs.wdk.tether.io"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/built-with-wdk-dark.svg"><img alt="Built with WDK" height="28" src="assets/built-with-wdk-light.svg"></picture></a>
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 WDK **Swidge** protocol module for EVM token swaps via the [0x Swap API v2](https://0x.org/docs/api).
