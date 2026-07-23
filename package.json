@@ -1,0 +1,71 @@
+{
+  "name": "@0x/wdk-protocol-swidge-0x",
+  "version": "0.1.0",
+  "description": "WDK swidge protocol module for EVM token swaps via the 0x Swap API v2.",
+  "keywords": [
+    "wdk",
+    "protocol",
+    "swidge",
+    "swap",
+    "0x",
+    "evm",
+    "defi"
+  ],
+  "homepage": "https://0x.org",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xProject/wdk-protocol-swidge-0x.git"
+  },
+  "bugs": {
+    "url": "https://github.com/0xProject/wdk-protocol-swidge-0x/issues"
+  },
+  "author": "0x Labs",
+  "license": "Apache-2.0",
+  "main": "index.js",
+  "type": "module",
+  "types": "./types",
+  "files": [
+    "index.js",
+    "bare.js",
+    "src",
+    "types"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build:types": "tsc",
+    "lint": "standard",
+    "lint:fix": "standard --fix",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "e2e": "node tests/e2e/swap-base.js"
+  },
+  "dependencies": {
+    "@tetherto/wdk-wallet": "^1.0.0-beta.11",
+    "bare-node-runtime": "^1.1.4"
+  },
+  "devDependencies": {
+    "@tetherto/wdk-wallet-evm": "^1.0.0-beta.13",
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
+    "standard": "^17.1.2",
+    "typescript": "^5.8.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "bare": "./bare.js",
+      "default": "./index.js"
+    },
+    "./package": {
+      "default": "./package.json"
+    }
+  },
+  "standard": {
+    "ignore": [
+      "bare.js",
+      "tests/**/*.js"
+    ]
+  }
+}

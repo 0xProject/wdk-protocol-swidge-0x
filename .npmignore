@@ -1,0 +1,7 @@
+tests/
+examples/
+.editorconfig
+.github/
+tsconfig.json
+*.log
+.env*
