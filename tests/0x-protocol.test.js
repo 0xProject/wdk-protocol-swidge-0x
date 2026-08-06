@@ -12,6 +12,17 @@ const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 const TAKER = '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
 const ALLOWANCE_HOLDER = '0xdef1c0ded9bec7f1a1670819833240f027b25eff'
+const NATIVE_SENTINEL = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+
+// Every identifier the module treats as "the chain's native token".
+const NATIVE_ALIASES = [
+  'native',
+  'eth',
+  '',
+  '0x0000000000000000000000000000000000000000',
+  '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+  NATIVE_SENTINEL
+]
 const SETTLER = '0x0000000000001ff3684f28c67538d4d072c22734'
 
 const PRICE_RESPONSE = {
@@ -239,13 +250,29 @@ describe('ZeroExProtocol', () => {
       ).rejects.toThrow(ZeroExApiError)
     })
 
-    test('normalises native token aliases', async () => {
-      await protocol.quoteSwidge({ fromToken: 'native', toToken: WETH, fromTokenAmount: 1n })
+    test.each(NATIVE_ALIASES)('normalises native token alias %p to the sentinel', async (alias) => {
+      await protocol.quoteSwidge({ fromToken: alias, toToken: WETH, fromTokenAmount: 1n })
 
-      const call = global.fetch.mock.calls[0][0]
-      expect(new URL(call).searchParams.get('sellToken')).toBe(
-        '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
-      )
+      const sellToken = new URL(global.fetch.mock.calls[0][0]).searchParams.get('sellToken')
+      expect(sellToken).toBe(NATIVE_SENTINEL)
+      // The mocked API accepts any string, so also assert the sentinel is a
+      // well-formed address. A malformed one only fails against the live API.
+      expect(sellToken).toMatch(/^0x[0-9a-fA-F]{40}$/)
+    })
+
+    test('normalises native token aliases in the buy position', async () => {
+      await protocol.quoteSwidge({ fromToken: USDC, toToken: 'native', fromTokenAmount: 1n })
+
+      const buyToken = new URL(global.fetch.mock.calls[0][0]).searchParams.get('buyToken')
+      expect(buyToken).toBe(NATIVE_SENTINEL)
+    })
+
+    test('forwards non-native token addresses unchanged', async () => {
+      const lowercaseUsdc = USDC.toLowerCase()
+      await protocol.quoteSwidge({ fromToken: lowercaseUsdc, toToken: WETH, fromTokenAmount: 1n })
+
+      const sellToken = new URL(global.fetch.mock.calls[0][0]).searchParams.get('sellToken')
+      expect(sellToken).toBe(lowercaseUsdc)
     })
   })
 
