@@ -46,8 +46,8 @@ import { ZeroExFeeLimitExceededError, ZeroExInsufficientLiquidityError, ZeroExRe
  * @property {number | bigint} [maxProtocolFeeBps] - Maximum acceptable protocol fee in basis points of the input amount. Enforced fail-closed: if the protocol fee is denominated in a token other than the sell token it cannot be compared and the swap is rejected.
  */
 
-// 0x uses this checksummed sentinel for native ETH / chain native token.
-// Must use the EIP-55 checksummed form — the 0x API rejects the all-lowercase variant.
+// 0x uses this sentinel address for native ETH / the chain's native token.
+// Stored in EIP-55 checksummed form; the API accepts either casing.
 const NATIVE_TOKEN_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 const NATIVE_TOKEN_ADDRESS_LOWER = NATIVE_TOKEN_ADDRESS.toLowerCase()
 
