@@ -31,6 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm-publish
 
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - uses: actions/checkout@v6
 
@@ -44,7 +48,15 @@ jobs:
       - name: Install dependencies
         run: npm clean-install
 
+      # types/ is gitignored, so the declarations must be generated here or the
+      # published tarball would ship without the types referenced by "exports".
+      - name: Build type declarations
+        run: npm run build:types
+
+      - name: Verify type declarations were emitted
+        run: test -f types/index.d.ts
+
       - name: Publish to npm
-        run: npm publish
+        run: npm publish --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
