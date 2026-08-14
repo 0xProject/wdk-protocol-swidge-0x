@@ -56,12 +56,10 @@ const quote = await protocol.quoteSwidge({
 
 const ethReceived = Number(quote.toTokenAmount) / 1e18
 const ethMin = Number(quote.toTokenAmountMin) / 1e18
-const priceImpactPct = quote.priceImpact != null ? (quote.priceImpact * 100).toFixed(4) : 'n/a'
 
 console.log(`\n  Sell:         ${Number(SELL_AMOUNT) / 1e6} USDC`)
 console.log(`  Buy:          ~${ethReceived.toFixed(6)} WETH`)
 console.log(`  Min received: ${ethMin.toFixed(6)} WETH (after slippage)`)
-console.log(`  Price impact: ${priceImpactPct}%`)
 console.log('  Fees:')
 for (const fee of quote.fees) {
   console.log(`    [${fee.type}] ${formatFeeAmount(fee.amount, fee.token)}`)

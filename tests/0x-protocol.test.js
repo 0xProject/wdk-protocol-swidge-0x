@@ -54,7 +54,6 @@ const PRICE_RESPONSE = {
   sellToken: USDC,
   tokenMetadata: {},
   totalNetworkFee: '3000000000000000',
-  estimatedPriceImpact: '0.5',
   zid: 'test-zid'
 }
 
@@ -142,10 +141,11 @@ describe('ZeroExProtocol', () => {
       expect(quote).toMatchObject({
         fromTokenAmount: 100000000n,
         toTokenAmount: 1000000000000000n,
-        toTokenAmountMin: 990000000000000n,
-        priceImpact: 0.005
+        toTokenAmountMin: 990000000000000n
       })
       expect(quote.fees).toHaveLength(2) // network + protocol
+      // Swap API v2 reports no price impact; the field is optional and stays unset.
+      expect(quote.priceImpact).toBeUndefined()
     })
 
     test('passes slippage as slippageBps to the API', async () => {
