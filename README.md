@@ -67,11 +67,13 @@ console.log('Minimum WETH out:  ', quote.toTokenAmountMin)
 
 // ── 2. Execute (requires a full WDK EVM wallet account) ───────────────────
 
-// import { WalletManager } from '@tetherto/wdk-wallet'
-// import EvmWallet from '@tetherto/wdk-wallet-evm'
-// const manager = new WalletManager({ wallets: [new EvmWallet()] })
-// await manager.load({ mnemonic: process.env.MNEMONIC })
-// const account = await manager.getWallet('evm').getAccount(0)
+import WalletManagerEvm from '@tetherto/wdk-wallet-evm'
+
+const manager = new WalletManagerEvm(process.env.MNEMONIC, {
+  provider: process.env.ETH_RPC,
+  chainId: 1
+})
+const account = await manager.getAccount(0)
 
 const execProtocol = new ZeroExProtocol(account, {
   chainId: 1,
