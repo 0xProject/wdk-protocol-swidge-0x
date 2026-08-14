@@ -1,11 +1,13 @@
 // Example: Swap 100 USDC for WETH on Ethereum mainnet using the 0x Swap API v2.
 //
 // Prerequisites:
-//   1. Set ZERO_EX_API_KEY in your environment (or in a .env file).
+//   1. Set ZERO_EX_API_KEY in your environment, or put it in a .env file and
+//      pass --env-file (nothing here loads .env automatically).
 //   2. Install dependencies: npm install
-//   3. Provide a funded EVM wallet account (see note below).
+//   3. Provide a funded EVM wallet account (only to execute; see note below).
 //
-// Run: node examples/swap-usdc-to-weth.js
+// Run: node --env-file=.env examples/swap-usdc-to-weth.js
+//  or: ZERO_EX_API_KEY=... node examples/swap-usdc-to-weth.js
 
 import ZeroExProtocol from '../index.js'
 
@@ -46,7 +48,7 @@ const protocol = new ZeroExProtocol(undefined, {
 
 // ─── Step 2: Get an indicative quote ─────────────────────────────────────────
 
-console.log(`\nFetching indicative price for ${SELL_AMOUNT} USDC → WETH on chain ${CHAIN_ID}…`)
+console.log(`\nFetching indicative price for ${Number(SELL_AMOUNT) / 1e6} USDC → WETH on chain ${CHAIN_ID}…`)
 
 const quote = await protocol.quoteSwidge({
   fromToken: USDC,
@@ -56,12 +58,10 @@ const quote = await protocol.quoteSwidge({
 
 const ethReceived = Number(quote.toTokenAmount) / 1e18
 const ethMin = Number(quote.toTokenAmountMin) / 1e18
-const priceImpactPct = quote.priceImpact != null ? (quote.priceImpact * 100).toFixed(4) : 'n/a'
 
 console.log(`\n  Sell:         ${Number(SELL_AMOUNT) / 1e6} USDC`)
 console.log(`  Buy:          ~${ethReceived.toFixed(6)} WETH`)
 console.log(`  Min received: ${ethMin.toFixed(6)} WETH (after slippage)`)
-console.log(`  Price impact: ${priceImpactPct}%`)
 console.log('  Fees:')
 for (const fee of quote.fees) {
   console.log(`    [${fee.type}] ${formatFeeAmount(fee.amount, fee.token)}`)

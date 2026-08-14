@@ -213,10 +213,11 @@ export default class ZeroExProtocol extends SwidgeProtocol {
       // The /price endpoint does not return an expiry timestamp; quotes via /quote expire ~30s
       // after fetching but that is enforced server-side, not surfaced in the response.
       expiry: undefined,
-      // 0x returns estimatedPriceImpact as a percentage string (e.g. "0.5" = 0.5%)
-      priceImpact: response.estimatedPriceImpact != null
-        ? Number(response.estimatedPriceImpact) / 100
-        : undefined
+      // Swap API v2 does not report price impact. The v1 `estimatedPriceImpact` field was
+      // dropped and has no v2 equivalent, so this stays undefined (the SwidgeQuote interface
+      // marks it optional). Deriving it would require a second reference quote to approximate
+      // spot price, which is not worth the extra request here.
+      priceImpact: undefined
     }
   }
 
