@@ -1,11 +1,13 @@
 // Example: Swap 100 USDC for WETH on Ethereum mainnet using the 0x Swap API v2.
 //
 // Prerequisites:
-//   1. Set ZERO_EX_API_KEY in your environment (or in a .env file).
+//   1. Set ZERO_EX_API_KEY in your environment, or put it in a .env file and
+//      pass --env-file (nothing here loads .env automatically).
 //   2. Install dependencies: npm install
-//   3. Provide a funded EVM wallet account (see note below).
+//   3. Provide a funded EVM wallet account (only to execute; see note below).
 //
-// Run: node examples/swap-usdc-to-weth.js
+// Run: node --env-file=.env examples/swap-usdc-to-weth.js
+//  or: ZERO_EX_API_KEY=... node examples/swap-usdc-to-weth.js
 
 import ZeroExProtocol from '../index.js'
 
@@ -46,7 +48,7 @@ const protocol = new ZeroExProtocol(undefined, {
 
 // ─── Step 2: Get an indicative quote ─────────────────────────────────────────
 
-console.log(`\nFetching indicative price for ${SELL_AMOUNT} USDC → WETH on chain ${CHAIN_ID}…`)
+console.log(`\nFetching indicative price for ${Number(SELL_AMOUNT) / 1e6} USDC → WETH on chain ${CHAIN_ID}…`)
 
 const quote = await protocol.quoteSwidge({
   fromToken: USDC,
