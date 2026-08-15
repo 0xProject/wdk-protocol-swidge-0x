@@ -6,8 +6,8 @@
 // shape (id, name, type, nativeToken), and widening that is not this module's job.
 //
 // Every entry follows EIP-3091, where <base>/tx/<hash> is the canonical transaction
-// path. HyperEVM (999) is absent: it publishes no explorer in the chain registry, and
-// 999 collides with an unrelated testnet there.
+// path. Note that the chainid.network registry lists 999 as an unrelated testnet;
+// on 0x it is HyperEVM, whose rpc reports chain id 999 and whose explorer is below.
 
 export const EXPLORERS = {
   1: 'https://etherscan.io', // Ethereum
@@ -18,6 +18,7 @@ export const EXPLORERS = {
   143: 'https://monadvision.com', // Monad
   146: 'https://sonicscan.org', // Sonic
   480: 'https://worldscan.org', // World Chain
+  999: 'https://hyperevmscan.io', // HyperEVM
   2741: 'https://abscan.org', // Abstract
   4217: 'https://explore.tempo.xyz', // Tempo
   5000: 'https://mantlescan.xyz', // Mantle
