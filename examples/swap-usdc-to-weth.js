@@ -14,8 +14,6 @@
 //   ZERO_EX_API_KEY  Required. Get one at https://dashboard.0x.org/create-account
 //   MNEMONIC         BIP-39 seed phrase. Setting it enables real execution.
 //   BASE_RPC         Base RPC url (default: https://mainnet.base.org)
-//   SELL_AMOUNT      Sell amount in USDC base units, 6 decimals
-//                    (default: 500000 = 0.5 USDC)
 
 import ZeroExProtocol from '../index.js'
 import { explorerUrl } from './explorers.js'
@@ -23,7 +21,7 @@ import { explorerUrl } from './explorers.js'
 const CHAIN_ID = 8453 // Base mainnet
 const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 const WETH = '0x4200000000000000000000000000000000000006'
-const SELL_AMOUNT = BigInt(process.env.SELL_AMOUNT ?? 500_000n) // default: 0.5 USDC (6 decimals)
+const SELL_AMOUNT = 500_000n // 0.5 USDC (6 decimals)
 
 const TOKEN_INFO = {
   '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee': { symbol: 'ETH', decimals: 18 },
@@ -87,7 +85,9 @@ const mnemonic = process.env.MNEMONIC
 const rpcUrl = process.env.BASE_RPC ?? 'https://mainnet.base.org'
 
 if (!mnemonic) {
-  console.log('\nDone (quote only). Set MNEMONIC to execute the swap on-chain.')
+  console.log(
+    '\nDone (quote only). Set MNEMONIC to execute the swap on-chain.'
+  )
   process.exit(0)
 }
 
@@ -106,15 +106,17 @@ const usdcBalance = await account.getTokenBalance(USDC)
 if (usdcBalance < SELL_AMOUNT) {
   console.error(
     `\nInsufficient USDC: the account holds ${Number(usdcBalance) / 1e6} but the swap sells ` +
-    `${Number(SELL_AMOUNT) / 1e6}.\nFund the account, or set SELL_AMOUNT to at most ${usdcBalance} ` +
-    '(base units) to sell what it already has.'
+      `${Number(SELL_AMOUNT) / 1e6}.\nFund the account, or lower SELL_AMOUNT in this file to at most ` +
+      `${usdcBalance} (base units) to sell what it already has.`
   )
   process.exit(1)
 }
 
 const ethBalance = await account.getBalance()
 if (ethBalance === 0n) {
-  console.error('\nThe account holds no ETH — it cannot pay gas for the approval and swap.')
+  console.error(
+    '\nThe account holds no ETH — it cannot pay gas for the approval and swap.'
+  )
   process.exit(1)
 }
 
@@ -138,7 +140,7 @@ if (link) console.log('Explorer:      ', link)
 // Poll for confirmation
 let status
 do {
-  await new Promise(resolve => setTimeout(resolve, 3000))
+  await new Promise((resolve) => setTimeout(resolve, 3000))
   const s = await execProtocol.getSwidgeStatus(result.id)
   status = s.status
   console.log('Status:', status)
